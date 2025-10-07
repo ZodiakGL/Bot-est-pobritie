@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMem
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberAdministrator;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberOwner;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -25,18 +26,26 @@ public class PermissionChecker {
     }
 
     /**
-     * Проверяет, является ли пользователь администратором чата
+     * Проверяет, может ли пользователь банить других пользователей
      */
-    public boolean isUserAdmin(Long chatId, Long userId) {
+    public boolean canUserBanMembers(Long chatId, Long userId) {
         try {
-            List<ChatMember> admins = getChatAdmins(chatId);
+            ChatMember member = getChatMember(chatId, userId);
 
-            for (ChatMember admin : admins) {
-                if (admin.getUser().getId().equals(userId)) {
-                    return true;
-                }
+            // Владелец может все
+            if (member instanceof ChatMemberOwner) {
+                return true;
             }
+
+            // Администратор - проверяем право ban users
+            if (member instanceof ChatMemberAdministrator) {
+                ChatMemberAdministrator admin = (ChatMemberAdministrator) member;
+                return admin.getCanRestrictMembers(); // Это и есть право "Ban users"
+            }
+
+            // Обычный пользователь не может банить
             return false;
+
         } catch (TelegramApiException e) {
             e.printStackTrace();
             return false;
@@ -64,10 +73,19 @@ public class PermissionChecker {
     }
 
     /**
-     * Проверяет, может ли пользователь быть замьючен (не админ)
+     * Проверяет, может ли пользователь быть замьючен (не админ и не владелец)
      */
     public boolean canUserBeMuted(Long chatId, Long userId) {
-        return !isUserAdmin(chatId, userId);
+        try {
+            ChatMember member = getChatMember(chatId, userId);
+
+            // Владелец и администраторы не могут быть замьючены
+            return !(member instanceof ChatMemberOwner || member instanceof ChatMemberAdministrator);
+
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     /**
@@ -93,9 +111,9 @@ public class PermissionChecker {
      * Комплексная проверка перед мутом
      */
     public PermissionCheckResult checkMutePermissions(Long chatId, Long executorUserId, Long targetUserId) {
-        // Проверяем права исполнителя
-        if (!isUserAdmin(chatId, executorUserId)) {
-            return PermissionCheckResult.noPermission("❌ Ты чо индеец, у тебя нет прав!");
+        // Проверяем права исполнителя - может ли он банить
+        if (!canUserBanMembers(chatId, executorUserId)) {
+            return PermissionCheckResult.noPermission("❌ Ты чо индеец, у тебя нет прав мутить пользователей!");
         }
 
         // Проверяем права бота
@@ -106,11 +124,32 @@ public class PermissionChecker {
             );
         }
 
-        // Проверяем, что цель не админ
+        // Проверяем, что цель не админ и не владелец
         if (!canUserBeMuted(chatId, targetUserId)) {
             return PermissionCheckResult.noPermission("❌ Ты чо блинов объелся? Админов нельзя мутить!");
         }
 
         return PermissionCheckResult.success();
+    }
+
+    /**
+     * Дополнительный метод для отладки прав пользователя
+     */
+    public String getUserRoleInfo(Long chatId, Long userId) {
+        try {
+            ChatMember member = getChatMember(chatId, userId);
+
+            if (member instanceof ChatMemberOwner) {
+                return "Владелец";
+            } else if (member instanceof ChatMemberAdministrator) {
+                ChatMemberAdministrator admin = (ChatMemberAdministrator) member;
+                return String.format("Администратор (может банить: %s)", admin.getCanRestrictMembers());
+            } else {
+                return "Обычный пользователь";
+            }
+
+        } catch (TelegramApiException e) {
+            return "Ошибка при получении информации: " + e.getMessage();
+        }
     }
 }
