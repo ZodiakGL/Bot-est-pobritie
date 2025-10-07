@@ -77,8 +77,15 @@ public class EstPobritieBot extends TelegramLongPollingBot {
     private void handleMuteCommand(Message message) {
         Long chatId = message.getChatId();
         Long executorUserId = message.getFrom().getId();
+
         Integer messageThreadId = message.getMessageThreadId();
 
+        System.out.println("Chat ID: " + chatId);
+        System.out.println("Message Thread ID: " + messageThreadId);
+        System.out.println("Is topic message: " + (messageThreadId != null && messageThreadId > 0));
+        System.out.println("Message text: " + message.getText());
+
+        // Проверяем, что команда в группе
         if (!permissionChecker.isGroupChat(message.getChat())) {
             sendText(chatId, messageThreadId, "❌ Эта команда работает только в группах и супергруппах!");
             return;
