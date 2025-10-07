@@ -93,7 +93,6 @@ public class EstPobritieBot extends TelegramLongPollingBot {
 
         Long targetUserId = getTargetUserId(message);
         if (targetUserId == null) {
-            sendText(chatId, "❌ Укажите пользователя для мута (ответом на сообщение)");
             return;
         }
 
