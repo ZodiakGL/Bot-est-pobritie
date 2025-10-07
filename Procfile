@@ -1,0 +1,1 @@
+web: java -jar target/BOT-EST-POBRITIE-1.0-SNAPSHOT.jar
