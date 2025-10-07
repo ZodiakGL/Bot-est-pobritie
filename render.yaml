@@ -3,7 +3,8 @@ services:
     name: telegram-bot
     env: java
     buildCommand: mvn clean package -DskipTests
-    startCommand: java -jar target/*.jar
+    startCommand: java -jar target/BOT-EST-POBRITIE-1.0-SNAPSHOT.jar
+    plan: free
     envVars:
       - key: BOT_TOKEN
-        value: false
+        sync: false
