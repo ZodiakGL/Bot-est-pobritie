@@ -13,8 +13,13 @@ import java.time.Instant;
 
 public class EstPobritieBot extends TelegramLongPollingBot {
     private final PermissionChecker permissionChecker;
+    private final String botToken;
 
     public EstPobritieBot() {
+        this.botToken = System.getenv("BOT_TOKEN");
+        if (this.botToken == null || this.botToken.isEmpty()) {
+            throw new IllegalStateException("BOT_TOKEN environment variable is not set!");
+        }
         this.permissionChecker = new PermissionChecker(this);
     }
 

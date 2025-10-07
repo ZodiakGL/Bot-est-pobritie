@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: telegram-bot
+    env: java
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/*.jar
+    envVars:
+      - key: BOT_TOKEN
+        value: false
