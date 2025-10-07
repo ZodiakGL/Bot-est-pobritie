@@ -17,6 +17,9 @@ public class EstPobritieBot extends TelegramLongPollingBot {
 
     public EstPobritieBot() {
         this.botToken = System.getenv("BOT_TOKEN");
+        System.out.println("EstPobritieBot constructor - token: " +
+                (this.botToken != null ? "SET (length: " + this.botToken.length() + ")" : "NULL"));
+
         if (this.botToken == null || this.botToken.isEmpty()) {
             throw new IllegalStateException("BOT_TOKEN environment variable is not set!");
         }
@@ -24,8 +27,17 @@ public class EstPobritieBot extends TelegramLongPollingBot {
     }
 
     @Override
+    public String getBotToken() {
+        System.out.println("getBotToken() called, returning: " +
+                (this.botToken != null ? "***" + this.botToken.substring(this.botToken.length() - 4) : "NULL"));
+        return this.botToken;
+    }
+
+    @Override
     public String getBotUsername() {
-        return "EstPobritieBot";
+        String username = "EstPobritieBot";
+        System.out.println("getBotUsername() called, returning: " + username);
+        return username;
     }
 
     @Override
