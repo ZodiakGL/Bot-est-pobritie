@@ -18,9 +18,6 @@ public class PermissionChecker {
         this.bot = bot;
     }
 
-    /**
-     * Проверяет, является ли чат группой или супергруппой
-     */
     public boolean isGroupChat(Chat chat) {
         return chat.isGroupChat() || chat.isSuperGroupChat();
     }
@@ -30,23 +27,39 @@ public class PermissionChecker {
      */
     public boolean canUserBanMembers(Long chatId, Long userId) {
         try {
+            System.out.println("🔍 Checking ban permissions for user: " + userId + " in chat: " + chatId);
+
             ChatMember member = getChatMember(chatId, userId);
 
             // Владелец может все
             if (member instanceof ChatMemberOwner) {
+                System.out.println("✅ User is OWNER - can ban");
                 return true;
             }
 
             // Администратор - проверяем право ban users
             if (member instanceof ChatMemberAdministrator) {
                 ChatMemberAdministrator admin = (ChatMemberAdministrator) member;
-                return admin.getCanRestrictMembers(); // Это и есть право "Ban users"
+                boolean canRestrict = admin.getCanRestrictMembers();
+                System.out.println("👤 User is ADMIN - canRestrictMembers: " + canRestrict);
+
+                // Детальная информация о правах администратора для отладки
+                System.out.println("📋 Admin rights details:");
+                System.out.println("   - canRestrictMembers: " + admin.getCanRestrictMembers());
+                System.out.println("   - canDeleteMessages: " + admin.getCanDeleteMessages());
+                System.out.println("   - canInviteUsers: " + admin.getCanInviteUsers());
+                System.out.println("   - canPinMessages: " + admin.getCanPinMessages());
+                System.out.println("   - canPromoteMembers: " + admin.getCanPromoteMembers());
+
+                return canRestrict;
             }
 
             // Обычный пользователь не может банить
+            System.out.println("❌ User is REGULAR USER - cannot ban");
             return false;
 
         } catch (TelegramApiException e) {
+            System.out.println("❌ Error checking user permissions: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -58,43 +71,45 @@ public class PermissionChecker {
     public boolean canBotRestrictMembers(Long chatId) {
         try {
             String botId = bot.getMe().getId().toString();
+            System.out.println("🤖 Checking bot permissions, bot ID: " + botId);
+
             ChatMember botMember = getChatMember(chatId, Long.valueOf(botId));
 
             if (botMember instanceof ChatMemberAdministrator) {
                 ChatMemberAdministrator admin = (ChatMemberAdministrator) botMember;
-                return admin.getCanRestrictMembers();
+                boolean canRestrict = admin.getCanRestrictMembers();
+                System.out.println("🤖 Bot is ADMIN - canRestrictMembers: " + canRestrict);
+                return canRestrict;
             }
 
+            System.out.println("❌ Bot is NOT ADMIN or cannot restrict members");
             return false;
         } catch (TelegramApiException e) {
+            System.out.println("❌ Error checking bot permissions: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
     }
 
     /**
-     * Проверяет, может ли пользователь быть замьючен (не админ и не владелец)
+     * Проверяет, может ли пользователь быть замьючен
      */
     public boolean canUserBeMuted(Long chatId, Long userId) {
         try {
+            System.out.println("🔍 Checking if user can be muted: " + userId);
+
             ChatMember member = getChatMember(chatId, userId);
 
-            // Владелец и администраторы не могут быть замьючены
-            return !(member instanceof ChatMemberOwner || member instanceof ChatMemberAdministrator);
+            boolean canBeMuted = !(member instanceof ChatMemberOwner || member instanceof ChatMemberAdministrator);
+            System.out.println("👤 User can be muted: " + canBeMuted);
+
+            return canBeMuted;
 
         } catch (TelegramApiException e) {
+            System.out.println("❌ Error checking if user can be muted: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
-    }
-
-    /**
-     * Получает список администраторов чата
-     */
-    public List<ChatMember> getChatAdmins(Long chatId) throws TelegramApiException {
-        GetChatAdministrators getAdmins = new GetChatAdministrators();
-        getAdmins.setChatId(chatId.toString());
-        return bot.execute(getAdmins);
     }
 
     /**
@@ -111,13 +126,24 @@ public class PermissionChecker {
      * Комплексная проверка перед мутом
      */
     public PermissionCheckResult checkMutePermissions(Long chatId, Long executorUserId, Long targetUserId) {
+        System.out.println("🚀 Starting permission check for mute:");
+        System.out.println("   Executor: " + executorUserId);
+        System.out.println("   Target: " + targetUserId);
+        System.out.println("   Chat: " + chatId);
+
         // Проверяем права исполнителя - может ли он банить
-        if (!canUserBanMembers(chatId, executorUserId)) {
-            return PermissionCheckResult.noPermission("❌ Ты чо индеец, у тебя нет прав мутить пользователей!");
+        boolean executorCanBan = canUserBanMembers(chatId, executorUserId);
+        System.out.println("🎯 Executor can ban: " + executorCanBan);
+
+        if (!executorCanBan) {
+            return PermissionCheckResult.noPermission("❌ Ты чо индеец, у тебя нет прав банить пользователей!");
         }
 
         // Проверяем права бота
-        if (!canBotRestrictMembers(chatId)) {
+        boolean botCanRestrict = canBotRestrictMembers(chatId);
+        System.out.println("🎯 Bot can restrict: " + botCanRestrict);
+
+        if (!botCanRestrict) {
             return PermissionCheckResult.noPermission(
                     "❌ У бота нет прав ограничивать пользователей!\n" +
                             "Пожалуйста, выдайте боту права администратора с разрешением 'Ban users'"
@@ -125,31 +151,47 @@ public class PermissionChecker {
         }
 
         // Проверяем, что цель не админ и не владелец
-        if (!canUserBeMuted(chatId, targetUserId)) {
-            return PermissionCheckResult.noPermission("❌ Ты чо блинов объелся? Админов нельзя мутить!");
+        boolean targetCanBeMuted = canUserBeMuted(chatId, targetUserId);
+        System.out.println("🎯 Target can be muted: " + targetCanBeMuted);
+
+        if (!targetCanBeMuted) {
+            return PermissionCheckResult.noPermission("❌ Ты чо блинов объелся? Админов и владельца нельзя мутить!");
         }
 
+        System.out.println("✅ All permissions check passed!");
         return PermissionCheckResult.success();
     }
 
     /**
-     * Дополнительный метод для отладки прав пользователя
+     * Детальная информация о правах пользователя
      */
     public String getUserRoleInfo(Long chatId, Long userId) {
         try {
             ChatMember member = getChatMember(chatId, userId);
 
             if (member instanceof ChatMemberOwner) {
-                return "Владелец";
+                return "👑 Владелец (может все)";
             } else if (member instanceof ChatMemberAdministrator) {
                 ChatMemberAdministrator admin = (ChatMemberAdministrator) member;
-                return String.format("Администратор (может банить: %s)", admin.getCanRestrictMembers());
+                return String.format(
+                        "👤 Администратор\n" +
+                                "   • Может банить: %s\n" +
+                                "   • Может удалять сообщения: %s\n" +
+                                "   • Может приглашать: %s\n" +
+                                "   • Может закреплять: %s\n" +
+                                "   • Может добавлять админов: %s",
+                        admin.getCanRestrictMembers() ? "✅" : "❌",
+                        admin.getCanDeleteMessages() ? "✅" : "❌",
+                        admin.getCanInviteUsers() ? "✅" : "❌",
+                        admin.getCanPinMessages() ? "✅" : "❌",
+                        admin.getCanPromoteMembers() ? "✅" : "❌"
+                );
             } else {
-                return "Обычный пользователь";
+                return "🙂 Обычный пользователь";
             }
 
         } catch (TelegramApiException e) {
-            return "Ошибка при получении информации: " + e.getMessage();
+            return "❌ Ошибка при получении информации: " + e.getMessage();
         }
     }
 }

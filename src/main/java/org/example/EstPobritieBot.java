@@ -49,6 +49,10 @@ public class EstPobritieBot extends TelegramLongPollingBot {
 
         if (text.startsWith("/mute")) {
             handleMuteCommand(message);
+        } else if (text.startsWith("/myrights")) {
+            handleMyRightsCommand(message);
+        } else if (text.startsWith("/checkrights")) {
+            handleCheckRightsCommand(message);
         }
     }
 
@@ -172,5 +176,39 @@ public class EstPobritieBot extends TelegramLongPollingBot {
         } else {
             return user.getFirstName() + (user.getLastName() != null ? " " + user.getLastName() : "");
         }
+    }
+
+    private void handleMyRightsCommand(Message message) {
+        Long chatId = message.getChatId();
+        Long userId = message.getFrom().getId();
+
+        String roleInfo = permissionChecker.getUserRoleInfo(chatId, userId);
+        boolean canBan = permissionChecker.canUserBanMembers(chatId, userId);
+
+        String response = "👤 Ваши права:\n" +
+                roleInfo + "\n\n" +
+                "Может использовать /mute: " + (canBan ? "✅ Да" : "❌ Нет");
+
+        sendReply(message, response);
+    }
+
+    private void handleCheckRightsCommand(Message message) {
+        // Проверяем права того, на кого ответили
+        if (message.getReplyToMessage() == null) {
+            sendReply(message, "❌ Ответьте на сообщение пользователя, чтобы проверить его права");
+            return;
+        }
+
+        Long chatId = message.getChatId();
+        Long targetUserId = message.getReplyToMessage().getFrom().getId();
+
+        String roleInfo = permissionChecker.getUserRoleInfo(chatId, targetUserId);
+        boolean canBeMuted = permissionChecker.canUserBeMuted(chatId, targetUserId);
+
+        String response = "👤 Права пользователя " + getUsername(message.getReplyToMessage().getFrom()) + ":\n" +
+                roleInfo + "\n\n" +
+                "Может быть замьючен: " + (canBeMuted ? "✅ Да" : "❌ Нет");
+
+        sendReply(message, response);
     }
 }
