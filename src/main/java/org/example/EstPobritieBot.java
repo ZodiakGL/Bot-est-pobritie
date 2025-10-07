@@ -29,11 +29,6 @@ public class EstPobritieBot extends TelegramLongPollingBot {
     }
 
     @Override
-    public String getBotToken() {
-        return "8270419254:AAFqPXfNb9bxJ1mqNwVIona4ctT8FThQErg";
-    }
-
-    @Override
     public void onUpdateReceived(Update update) {
         if (!update.hasMessage() || !update.getMessage().hasText()) return;
 
