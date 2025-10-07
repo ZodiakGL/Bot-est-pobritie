@@ -77,27 +77,25 @@ public class EstPobritieBot extends TelegramLongPollingBot {
     private void handleMuteCommand(Message message) {
         Long chatId = message.getChatId();
         Long executorUserId = message.getFrom().getId();
+        Integer messageThreadId = message.getMessageThreadId();
 
-        // Проверяем, что команда в группе
         if (!permissionChecker.isGroupChat(message.getChat())) {
-            sendText(chatId, "❌ Эта команда работает только в группах и супергруппах!");
+            sendText(chatId, messageThreadId, "❌ Эта команда работает только в группах и супергруппах!");
             return;
         }
 
-        // Получаем ID целевого пользователя
         Long targetUserId = getTargetUserId(message);
         if (targetUserId == null) {
-            sendText(chatId, "❌ Укажите пользователя для мута (ответом на сообщение)");
+            sendText(chatId, messageThreadId, "❌ Укажите пользователя для мута (ответом на сообщение)");
             return;
         }
 
-        // Проверяем права
         PermissionCheckResult permissionCheck = permissionChecker.checkMutePermissions(
                 chatId, executorUserId, targetUserId
         );
 
         if (permissionCheck.hasError()) {
-            sendText(chatId, permissionCheck.getErrorMessage());
+            sendText(chatId, messageThreadId, permissionCheck.getErrorMessage());
             return;
         }
 
@@ -105,27 +103,34 @@ public class EstPobritieBot extends TelegramLongPollingBot {
             int minutes = parseMuteTime(message.getText());
 
             if (!TimeParser.isValidMuteTime(minutes)) {
-                sendText(chatId, String.format(
+                sendText(chatId, messageThreadId, String.format(
                         "❌ Время мута должно быть от 1 минуты до %d дней!",
                         TimeParser.getMaxMuteTime() / (60 * 24)
                 ));
                 return;
             }
 
-            // Выдаем мут
             muteUser(chatId, targetUserId, minutes);
             String targetUsername = getUsername(message.getReplyToMessage().getFrom());
-            sendText(chatId, "✅ Пользователю " + targetUsername + " выдан мут на " + minutes + " минут");
+            sendText(chatId, messageThreadId, "✅ Пользователю " + targetUsername + " выдан мут на " + minutes + " минут");
 
         } catch (NumberFormatException e) {
-            sendText(chatId, "❌ Неверный формат времени. Используйте: /mute время_в_минутах");
+            sendText(chatId, messageThreadId, "❌ Неверный формат времени. Используйте: /mute время_в_минутах");
         }
     }
 
     private void sendText(Long chatId, String text) {
+        sendText(chatId, null, text);
+    }
+
+    private void sendText(Long chatId, Integer messageThreadId, String text) {
         SendMessage message = new SendMessage();
         message.setChatId(chatId.toString());
         message.setText(text);
+
+        if (messageThreadId != null) {
+            message.setMessageThreadId(messageThreadId);
+        }
 
         try {
             execute(message);
